@@ -1,7 +1,11 @@
 /*
- * Created by Ubique Innovation AG
- * https://www.ubique.ch
- * Copyright (c) 2020. All rights reserved.
+ * Copyright (c) 2020 Ubique Innovation AG <https://www.ubique.ch>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package org.dpppt.backend.sdk.ws.config;
@@ -14,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Duration;
 import java.util.Base64;
 
 import org.apache.commons.io.IOUtils;
@@ -49,6 +54,9 @@ public class WSJWTConfig extends WebSecurityConfigurerAdapter {
 	@Value("${ws.app.jwt.publickey}")
 	String publicKey;
 
+	@Value("${ws.app.jwt.maxValidityMinutes: 60}")
+	int maxValidityMinutes;
+
 	@Autowired
 	@Lazy
 	DPPPTDataService dataService;
@@ -59,7 +67,7 @@ public class WSJWTConfig extends WebSecurityConfigurerAdapter {
 		http.cors()
         .and()
           .authorizeRequests()
-            .antMatchers(HttpMethod.POST, "/v1/exposed")
+            .antMatchers(HttpMethod.POST, "/v1/exposed", "/v1/exposedlist")
             .authenticated()
             .anyRequest()
 			.permitAll()
@@ -84,7 +92,7 @@ public class WSJWTConfig extends WebSecurityConfigurerAdapter {
 
 	@Bean
 	public JWTValidator jwtValidator() {
-		return new JWTValidator(dataService);
+		return new JWTValidator(dataService, Duration.ofMinutes(maxValidityMinutes));
 	}
 
 	@Bean

@@ -1,15 +1,20 @@
 /*
- * Created by Ubique Innovation AG
- * https://www.ubique.ch
- * Copyright (c) 2020. All rights reserved.
+ * Copyright (c) 2020 Ubique Innovation AG <https://www.ubique.ch>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package org.dpppt.backend.sdk.data;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.dpppt.backend.sdk.model.Exposee;
-import org.joda.time.DateTime;
+
 
 public interface DPPPTDataService {
 
@@ -22,12 +27,20 @@ public interface DPPPTDataService {
 	void upsertExposee(Exposee exposee, String appSource);
 
 	/**
+	 * Upserts the given exposees (if keys cannot be derived from one master key)
+	 * 
+	 * @param exposeex the list of exposees to upsert
+	 * @param appSource the app name
+	 */
+	void upsertExposees(List<Exposee> exposees, String appSource);
+
+	/**
 	 * Returns all exposees for the given day [day: 00:00, day+1: 00:00] ordered by id
 	 * 
 	 * @param day the day for which exposees are requested
 	 * @return exposee list
 	 */
-	List<Exposee> getSortedExposedForDay(DateTime day);
+	List<Exposee> getSortedExposedForDay(OffsetDateTime day);
 
 	/**
 	 * Returns the maximum id of the stored exposed entries for the given day date
@@ -36,7 +49,7 @@ public interface DPPPTDataService {
 	 * 
 	 * @return the max id or 0
 	 */
-	Integer getMaxExposedIdForDay(DateTime day);
+	Integer getMaxExposedIdForDay(OffsetDateTime day);
 
 	/**
 	 * Checks and inserts a publish uuid.

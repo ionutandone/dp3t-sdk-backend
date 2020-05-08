@@ -1,18 +1,20 @@
 /*
- * Created by Ubique Innovation AG
- * https://www.ubique.ch
- * Copyright (c) 2020. All rights reserved.
+ * Copyright (c) 2020 Ubique Innovation AG <https://www.ubique.ch>
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * SPDX-License-Identifier: MPL-2.0
  */
 
 package org.dpppt.backend.sdk.ws.config;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.hubspot.jackson.datatype.protobuf.ProtobufModule;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
+import java.security.KeyPair;
+import java.util.List;
+
+import javax.sql.DataSource;
+
 import org.dpppt.backend.sdk.data.DPPPTDataService;
 import org.dpppt.backend.sdk.data.EtagGenerator;
 import org.dpppt.backend.sdk.data.EtagGeneratorInterface;
@@ -37,9 +39,14 @@ import org.springframework.scheduling.config.IntervalTask;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import javax.sql.DataSource;
-import java.security.KeyPair;
-import java.util.List;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.hubspot.jackson.datatype.protobuf.ProtobufModule;
+
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 
 @Configuration
 @EnableScheduling
@@ -59,11 +66,17 @@ public abstract class WSBaseConfig implements SchedulingConfigurer, WebMvcConfig
 	@Value("${ws.headers.protected:}")
 	List<String> protectedHeaders;
 
+	@Value("${ws.headers.debug: false}")
+	boolean setDebugHeaders;
+
 	@Value("${ws.retentiondays: 21}")
 	int retentionDays;
 
 	@Value("${ws.exposedlist.batchlength: 7200000}")
 	long batchLength;
+
+	@Value("${ws.exposedlist.requestTime: 1500}")
+	long requestTime;
 
 	@Value("${ws.app.source}")
 	String appSource;
@@ -80,7 +93,7 @@ public abstract class WSBaseConfig implements SchedulingConfigurer, WebMvcConfig
 			theValidator = new NoValidateRequest();
 		}
 		return new DPPPTController(dppptSDKDataService(), etagGenerator(), appSource, exposedListCacheControl,
-				theValidator, batchLength);
+				theValidator, batchLength, retentionDays, requestTime);
 	}
 
 	@Bean
@@ -109,7 +122,7 @@ public abstract class WSBaseConfig implements SchedulingConfigurer, WebMvcConfig
 
 	@Bean
 	public ResponseWrapperFilter hashFilter() {
-		return new ResponseWrapperFilter(getKeyPair(algorithm), retentionDays, protectedHeaders);
+		return new ResponseWrapperFilter(getKeyPair(algorithm), retentionDays, protectedHeaders, setDebugHeaders);
 	}
 
 	public KeyPair getKeyPair(SignatureAlgorithm algorithm) {
