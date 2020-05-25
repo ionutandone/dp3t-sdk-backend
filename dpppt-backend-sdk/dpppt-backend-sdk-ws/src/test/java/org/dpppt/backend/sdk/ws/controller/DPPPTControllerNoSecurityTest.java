@@ -15,10 +15,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.Iterator;
 
 import org.dpppt.backend.sdk.model.ExposeeAuthData;
@@ -37,7 +40,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 		ExposeeRequest exposeeRequest = new ExposeeRequest();
 		exposeeRequest.setAuthData(new ExposeeAuthData());
 		exposeeRequest.setKeyDate(LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli());
-		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey16Bytes--".getBytes("UTF-8")));
+		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey32Bytes--testKey32Bytes--".getBytes("UTF-8")));
 		exposeeRequest.setIsFake(0);
 		MockHttpServletResponse response = mockMvc.perform(post("/v1/exposed").contentType(MediaType.APPLICATION_JSON)
 				.header("User-Agent", "MockMVC").content(json(exposeeRequest))).andExpect(status().is2xxSuccessful())
@@ -49,7 +52,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 		ExposeeRequest exposeeRequest = new ExposeeRequest();
 		exposeeRequest.setAuthData(new ExposeeAuthData());
 		exposeeRequest.setKeyDate(LocalDate.now().atStartOfDay().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli());
-		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey16Bytes--".getBytes("UTF-8")));
+		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey32Bytes--testKey32Bytes--".getBytes("UTF-8")));
 		exposeeRequest.setIsFake(1);
 		MockHttpServletResponse response = mockMvc.perform(post("/v1/exposed").contentType(MediaType.APPLICATION_JSON)
 				.header("User-Agent", "MockMVC").content(json(exposeeRequest))).andExpect(status().is2xxSuccessful())
@@ -62,7 +65,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 		exposeeRequest.setAuthData(new ExposeeAuthData());
 		exposeeRequest.setKeyDate(
 				OffsetDateTime.now().withOffsetSameInstant(ZoneOffset.UTC).minusDays(22).toInstant().toEpochMilli());
-		exposeeRequest.setKey(Base64.getEncoder().encodeToString("test".getBytes("UTF-8")));
+		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey32Bytes--testKey32Bytes--".getBytes("UTF-8")));
 
 		MockHttpServletResponse response = mockMvc
 				.perform(post("/v1/exposed").contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC")
@@ -76,7 +79,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 		exposeeRequest.setAuthData(new ExposeeAuthData());
 		exposeeRequest.setKeyDate(
 				OffsetDateTime.now().withOffsetSameInstant(ZoneOffset.UTC).plusMinutes(1).toInstant().toEpochMilli());
-		exposeeRequest.setKey(Base64.getEncoder().encodeToString("test".getBytes("UTF-8")));
+		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey32Bytes--testKey32Bytes--".getBytes("UTF-8")));
 
 		MockHttpServletResponse response = mockMvc
 				.perform(post("/v1/exposed").contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC")
@@ -90,7 +93,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 		exposeeRequest.setAuthData(new ExposeeAuthData());
 		exposeeRequest
 				.setKeyDate(OffsetDateTime.now().withOffsetSameInstant(ZoneOffset.UTC).toInstant().toEpochMilli());
-		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey16Bytes--".getBytes("UTF-8")));
+		exposeeRequest.setKey(Base64.getEncoder().encodeToString("testKey32Bytes--testKey32Bytes--".getBytes("UTF-8")));
 
 		MockHttpServletResponse response = mockMvc.perform(post("/v1/exposed").contentType(MediaType.APPLICATION_JSON)
 				.header("User-Agent", "MockMVC").content(json(exposeeRequest))).andExpect(status().is2xxSuccessful())
@@ -103,7 +106,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 	@Test
 	public void testBucketsAndExposedResponse() throws Exception {
 		MockHttpServletResponse response = mockMvc.perform(
-				get("/v1/buckets/2020-04-29").contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC"))
+				get("/v1/buckets/"+getDateStringOfYesterday()).contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC"))
 				.andExpect(status().is(200)).andReturn().getResponse();
 		Long bucket = mapper.readTree(response.getContentAsString()).get("buckets").elements().next().asLong();
 		response = mockMvc.perform(get("/v1/exposed/" + bucket.toString())).andExpect(status().is2xxSuccessful())
@@ -117,7 +120,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 	@Test
 	public void test400WhenNotModBatch() throws Exception {
 		MockHttpServletResponse response = mockMvc.perform(
-				get("/v1/buckets/2020-04-29").contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC"))
+				get("/v1/buckets/"+getDateStringOfYesterday()).contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC"))
 				.andExpect(status().is(200)).andReturn().getResponse();
 		Long bucket = mapper.readTree(response.getContentAsString()).get("buckets").elements().next().asLong() + 1;
 
@@ -130,7 +133,7 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 	@Test
 	public void test404() throws Exception {
 		MockHttpServletResponse response = mockMvc.perform(
-				get("/v1/buckets/2020-04-29").contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC"))
+				get("/v1/buckets/"+getDateStringOfYesterday()).contentType(MediaType.APPLICATION_JSON).header("User-Agent", "MockMVC"))
 				.andExpect(status().is(200)).andReturn().getResponse();
 		Iterator<JsonNode> buckets = mapper.readTree(response.getContentAsString()).get("buckets").elements();
 		Long first = buckets.next().asLong();
@@ -154,5 +157,11 @@ public class DPPPTControllerNoSecurityTest extends BaseControllerNoSecurityTest 
 				.andReturn().getResponse();
 		response = mockMvc.perform(get("/v1/exposedjson/" + Long.toString(past))).andExpect(status().isNotFound())
 				.andReturn().getResponse();
+	}
+
+	private String getDateStringOfYesterday(){
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Date yesterday = new Date(System.currentTimeMillis()-24*60*60*1000l);
+		return sdf.format(yesterday);
 	}
 }

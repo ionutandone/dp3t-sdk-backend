@@ -10,29 +10,31 @@
 
 package org.dpppt.backend.sdk.ws.config;
 
-import java.io.StringReader;
-import java.security.KeyFactory;
-import java.security.KeyPair;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.Security;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Properties;
 
 import javax.sql.DataSource;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.util.io.pem.PemReader;
+import org.dpppt.backend.sdk.data.gaen.DebugGAENDataService;
+import org.dpppt.backend.sdk.data.gaen.DebugJDBCGAENDataServiceImpl;
+import org.dpppt.backend.sdk.ws.controller.DebugController;
+import org.dpppt.backend.sdk.ws.security.KeyVault;
+import org.dpppt.backend.sdk.ws.security.ValidateRequest;
+import org.dpppt.backend.sdk.ws.security.KeyVault.PrivateKeyNoSuitableEncodingFoundException;
+import org.dpppt.backend.sdk.ws.security.KeyVault.PublicKeyNoSuitableEncodingFoundException;
+import org.dpppt.backend.sdk.ws.security.signature.ProtoSignature;
+import org.dpppt.backend.sdk.ws.util.ValidationUtils;
 import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 
-import io.jsonwebtoken.SignatureAlgorithm;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -108,43 +110,27 @@ public class WSProdConfig extends WSBaseConfig {
 
 	}
 
-	@Override
-	public KeyPair getKeyPair(SignatureAlgorithm algorithm) {
-		Security.setProperty("crypto.policy", "unlimited");
+	@Bean
+	KeyVault keyVault() {
+		var privateKey = getPrivateKey();
+		var publicKey = getPublicKey();
+		
 		if(privateKey.isEmpty() || publicKey.isEmpty()) {
-			return super.getKeyPair(algorithm);
+			var kp = super.getKeyPair(algorithm);
+			var gaenKp = new KeyVault.KeyVaultKeyPair("gaen", kp);
+			var nextDayJWTKp = new KeyVault.KeyVaultKeyPair("nextDayJWT", kp);
+			var hashFilterKp = new KeyVault.KeyVaultKeyPair("hashFilter", kp);
+			return new KeyVault(gaenKp, nextDayJWTKp, hashFilterKp);
 		}
- 		return new KeyPair(loadPublicKeyFromString(),loadPrivateKeyFromString());
-	}
 
-	private PrivateKey loadPrivateKeyFromString() {
-		try {
-			String privateKey = getPrivateKey();
-			var reader = new StringReader(privateKey);
-			var readerPem = new PemReader(reader);
-			var obj = readerPem.readPemObject();
-			var pkcs8KeySpec = new PKCS8EncodedKeySpec(obj.getContent());
-			var kf = KeyFactory.getInstance("EC");
-			return (PrivateKey) kf.generatePrivate(pkcs8KeySpec);
-		}
-		catch (Exception ex) {
-			ex.printStackTrace();
-			throw new RuntimeException();
-		}
-	}
+		var gaen = new KeyVault.KeyVaultEntry("gaen", getPrivateKey(), getPublicKey(), "EC");
+		var nextDayJWT = new KeyVault.KeyVaultEntry("nextDayJWT", getPrivateKey(), getPublicKey(), "EC");
+		var hashFilter = new KeyVault.KeyVaultEntry("hashFilter", getPrivateKey(), getPublicKey(), "EC"); 
 
-	private PublicKey loadPublicKeyFromString() {
 		try {
-			var reader = new StringReader(getPublicKey());
-			var readerPem = new PemReader(reader);
-			var obj = readerPem.readPemObject();
-			return KeyFactory.getInstance("EC").generatePublic(
-					new X509EncodedKeySpec(obj.getContent())
-			);
-		}
-		catch (Exception ex) {
-			ex.printStackTrace();
-			throw new RuntimeException();
+			return new KeyVault(gaen, nextDayJWT, hashFilter);
+		} catch (PrivateKeyNoSuitableEncodingFoundException | PublicKeyNoSuitableEncodingFoundException e) {
+			throw new RuntimeException(e);
 		}
 	}
 
@@ -154,6 +140,53 @@ public class WSProdConfig extends WSBaseConfig {
 
     String getPublicKey() {
         return new String(Base64.getDecoder().decode(publicKey));
-    }
+	}
+	
+	@Profile("debug")
+	@Configuration
+	public static class DebugConfig {
+		@Value("${ws.exposedlist.debug.batchlength: 86400000}")
+		long batchLength;
+	
+		@Value("${ws.exposedlist.debug.requestTime: 1500}")
+		long requestTime;
+
+		@Autowired
+		KeyVault keyVault;
+		@Autowired
+		Flyway flyway;
+		@Autowired
+		DataSource dataSource;
+		@Autowired
+		ProtoSignature gaenSigner;
+		@Autowired
+		ValidateRequest backupValidator;
+		@Autowired
+		ValidationUtils gaenValidationUtils;
+		@Autowired
+		Environment env;
+		
+		protected boolean isProd() {
+			return Arrays.asList(env.getActiveProfiles()).contains("prod");
+		}
+		protected boolean isDev() {
+			return Arrays.asList(env.getActiveProfiles()).contains("dev");
+		}
+		
+		@Bean
+			DebugGAENDataService dataService() {
+				String dbType = "";
+				if(isProd()) {
+					dbType = "pgsql";
+				} else if(isDev()) {
+					dbType = "hsqldb";
+				}
+			return new DebugJDBCGAENDataServiceImpl(dbType, dataSource);
+		}
+		@Bean
+		DebugController debugController() {
+			return new DebugController(dataService(),gaenSigner,backupValidator, gaenValidationUtils,Duration.ofMillis(batchLength), Duration.ofMillis(requestTime));
+		}
+	}
 
 }
